@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import torch
+import paddle
 import triton
 import triton.language as tl
 
@@ -58,8 +58,8 @@ def quant_per_block_int8_kernel(Input, Output, Scale,
     tl.store(scale_ptrs, scale)
 
 def per_block_int8(q, k, cu_seqlens_q, cu_seqlens_k, max_seqlen_q, max_seqlen_k, BLKQ=128, BLKK=64, sm_scale=None):
-    q_int8 = torch.empty(q.shape, dtype=torch.int8, device=q.device)
-    k_int8 = torch.empty(k.shape, dtype=torch.int8, device=k.device)
+    q_int8 = paddle.empty(q.shape, dtype=paddle.int8)
+    k_int8 = paddle.empty(k.shape, dtype=paddle.int8)
 
     h_qo = q.shape[1]
     h_kv = k.shape[1]
@@ -72,11 +72,11 @@ def per_block_int8(q, k, cu_seqlens_q, cu_seqlens_k, max_seqlen_q, max_seqlen_k,
     q_scale_len = (q_batch_len + BLKQ - 1) // BLKQ
     k_scale_len = (k_batch_len + BLKK - 1) // BLKK
 
-    cu_seqlens_q_scale = torch.nn.functional.pad(torch.cumsum(q_scale_len, dim=0), (1, 0), value=0)
-    cu_seqlens_k_scale = torch.nn.functional.pad(torch.cumsum(k_scale_len, dim=0), (1, 0), value=0)
+    cu_seqlens_q_scale = paddle.nn.functional.pad(paddle.cumsum(q_scale_len, axis=0), (1, 0), value=0, data_format='NCL')
+    cu_seqlens_k_scale = paddle.nn.functional.pad(paddle.cumsum(k_scale_len, axis=0), (1, 0), value=0, data_format='NCL')
 
-    q_scale = torch.empty((cu_seqlens_q_scale[-1], h_qo), device=q.device, dtype=torch.float32)
-    k_scale = torch.empty((cu_seqlens_k_scale[-1], h_kv), device=k.device, dtype=torch.float32)
+    q_scale = paddle.empty((cu_seqlens_q_scale[-1], h_qo), dtype=paddle.float32)
+    k_scale = paddle.empty((cu_seqlens_k_scale[-1], h_kv), dtype=paddle.float32)
 
     if sm_scale is None:
         sm_scale = head_dim**-0.5
@@ -85,8 +85,8 @@ def per_block_int8(q, k, cu_seqlens_q, cu_seqlens_k, max_seqlen_q, max_seqlen_k,
     quant_per_block_int8_kernel[grid](
         q, q_int8, q_scale,
         cu_seqlens_q, cu_seqlens_q_scale,
-        q.stride(1), q.stride(0),
-        q_int8.stride(1), q_int8.stride(0),
+        q.strides[1], q.strides[0],
+        q_int8.strides[1], q_int8.strides[0],
         sm_scale=(sm_scale * 1.44269504), H=h_qo,
         C=head_dim, BLK=BLKQ
     )
@@ -95,8 +95,8 @@ def per_block_int8(q, k, cu_seqlens_q, cu_seqlens_k, max_seqlen_q, max_seqlen_k,
     quant_per_block_int8_kernel[grid](
         k, k_int8, k_scale,
         cu_seqlens_k, cu_seqlens_k_scale,
-        k.stride(1), k.stride(0),
-        k_int8.stride(1), k_int8.stride(0),
+        k.strides[1], k.strides[0],
+        k_int8.strides[1], k_int8.strides[0],
         sm_scale=1.0, H=h_kv,
         C=head_dim, BLK=BLKK
     )

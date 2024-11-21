@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import torch, math
+import paddle, math
 import triton
 import triton.language as tl
 
@@ -117,12 +117,12 @@ def _attn_fwd(Q, K, V,
     acc = acc / l_i[:, None]
     tl.store(O_block_ptr, acc.to(Out.type.element_ty), mask = (offs_m[:, None] < qo_len))
 
-def forward(q, k, v, cu_seqlens_q, cu_seqlens_k, max_seqlen_q, q_scale, k_scale, cu_seqlens_q_scale, cu_seqlens_k_scale, output_dtype=torch.float16):
+def forward(q, k, v, cu_seqlens_q, cu_seqlens_k, max_seqlen_q, q_scale, k_scale, cu_seqlens_q_scale, cu_seqlens_k_scale, output_dtype=paddle.float16):
     BLOCK_M = 128
     BLOCK_N = 64
     stage = 1
 
-    o = torch.empty(q.shape, dtype=output_dtype, device=q.device)
+    o = paddle.empty(q.shape, dtype=output_dtype)
 
     b = cu_seqlens_q.shape[0] - 1
     _, h_qo, head_dim = q.shape
@@ -136,10 +136,10 @@ def forward(q, k, v, cu_seqlens_q, cu_seqlens_k, max_seqlen_q, q_scale, k_scale,
         q, k, v, cu_seqlens_q, cu_seqlens_k,
         q_scale, k_scale, cu_seqlens_q_scale, cu_seqlens_k_scale,
         o,  
-        q.stride(1), q.stride(0), 
-        k.stride(1), k.stride(0),  
-        v.stride(1), v.stride(0), 
-        o.stride(1), o.stride(0),
+        q.strides[1], q.strides[0], 
+        k.strides[1], k.strides[0],  
+        v.strides[1], v.strides[0], 
+        o.strides[1], o.strides[0],
         h_qo, num_kv_groups,
         BLOCK_M=BLOCK_M, BLOCK_N=BLOCK_N, HEAD_DIM=HEAD_DIM_K,  
         STAGE=stage,  
