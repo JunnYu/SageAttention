@@ -9,7 +9,7 @@ times = {
     "sageattn": [],
     "scaled_dot_product_attention": []
 }
- 
+n_iter = 100
 
 # 为 q, k, v 生成随机数据，并测量运行时间
 for dtype in ["float16", "bfloat16"]:
@@ -20,15 +20,17 @@ for dtype in ["float16", "bfloat16"]:
     
     # 测量 sageattn 运行 100 次的时间
     start_time = time.time()
-    for _ in range(100):
+    for _ in range(n_iter):
         out1 = sageattn(q, k, v, is_causal=True)
+        paddle.device.cuda.synchronize()
     end_time = time.time()
     times["sageattn"].append(end_time - start_time)
     
     # 测量 scaled_dot_product_attention 运行 100 次的时间
     start_time = time.time()
-    for _ in range(100):
+    for _ in range(n_iter):
         out2 = F.scaled_dot_product_attention(q.transpose([0, 2, 1, 3]), k.transpose([0, 2, 1, 3]), v.transpose([0, 2, 1, 3]), is_causal=True)
+        paddle.device.cuda.synchronize()
     end_time = time.time()
     times["scaled_dot_product_attention"].append(end_time - start_time)
     diff = paddle.abs(out1 - out2.transpose([0, 2, 1, 3]))
