@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#include <ATen/cuda/CUDAContext.h>
-#include <torch/extension.h>
+#include <paddle/extension.h>
 
 #include "../dispatch_utils.h"
 #include "../utils.cuh"
@@ -428,9 +427,9 @@ __global__ void MeanScaleKernel(T *__restrict__ input, int8_t *__restrict__ outp
 }
 
 void quant_per_block_int8_cuda(
-                torch::Tensor input,
-                torch::Tensor output,
-                torch::Tensor scale,
+                paddle::Tensor input,
+                paddle::Tensor output,
+                paddle::Tensor scale,
                 float sm_scale,
                 int block_size,
                 int tensor_layout)
@@ -439,8 +438,8 @@ void quant_per_block_int8_cuda(
   CHECK_CUDA(output);
   CHECK_CUDA(scale);
   
-  CHECK_DTYPE(output, torch::kInt8);
-  CHECK_DTYPE(scale, torch::kFloat);
+  // CHECK_DTYPE(output, paddle::kInt8);
+  // CHECK_DTYPE(scale, paddle::kFloat);
 
   CHECK_LASTDIM_CONTIGUOUS(input);
   CHECK_CONTIGUOUS(output);
@@ -450,41 +449,41 @@ void quant_per_block_int8_cuda(
   CHECK_DIMS(output, 4);
   CHECK_DIMS(scale, 3);
 
-  const int batch_size = input.size(0);
-  const int head_dim = input.size(3);
+  const int batch_size = input.dims()[0];
+  const int head_dim = input.dims()[3];
 
-  int stride_bz_input = input.stride(0);
-  int stride_bz_output = output.stride(0);
+  int stride_bz_input = input.strides()[0];
+  int stride_bz_output = output.strides()[0];
 
   int num_tokens, num_heads;
   int stride_seq_input, stride_h_input, stride_seq_output, stride_h_output;
 
   if (tensor_layout == 0)
   {
-    num_tokens = input.size(1);
-    num_heads = input.size(2);
-    stride_seq_input = input.stride(1);
-    stride_h_input = input.stride(2);
-    stride_seq_output = output.stride(1);
-    stride_h_output = output.stride(2);
+    num_tokens = input.dims()[1];
+    num_heads = input.dims()[2];
+    stride_seq_input = input.strides()[1];
+    stride_h_input = input.strides()[2];
+    stride_seq_output = output.strides()[1];
+    stride_h_output = output.strides()[2];
   }
   else
   {
-    num_tokens = input.size(2);
-    num_heads = input.size(1);
-    stride_seq_input = input.stride(2);
-    stride_h_input = input.stride(1);
-    stride_seq_output = output.stride(2);
-    stride_h_output = output.stride(1);
+    num_tokens = input.dims()[2];
+    num_heads = input.dims()[1];
+    stride_seq_input = input.strides()[2];
+    stride_h_input = input.strides()[1];
+    stride_seq_output = output.strides()[2];
+    stride_h_output = output.strides()[1];
   }
 
-  auto input_dtype = input.scalar_type();
+  auto input_dtype = input.dtype();
 
-  DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(input_dtype, c_type, {
+  DISPATCH_PADDLE_DTYPE_TO_CTYPE_FP16(input_dtype, c_type, {
     DISPATCH_BLOCK_SIZE(block_size, BLOCK_SIZE, {
       DISPATCH_HEAD_DIM(head_dim, HEAD_DIM, {
 
-        CHECK_SHAPE(output, input.size(0), input.size(1), input.size(2), input.size(3));
+        CHECK_SHAPE(output, input.dims()[0], input.dims()[1], input.dims()[2], input.dims()[3]);
         CHECK_SHAPE(scale, batch_size, num_heads, (num_tokens + BLOCK_SIZE - 1) / BLOCK_SIZE);
 
         dim3 grid((num_tokens + BLOCK_SIZE - 1) / BLOCK_SIZE, num_heads, batch_size);
@@ -494,16 +493,16 @@ void quant_per_block_int8_cuda(
         dim3 block(BLOCK_SIZE * (HEAD_DIM / 8) / num_pack_per_thread);
 
         QuantInt8Kernel<HEAD_DIM, BLOCK_SIZE, num_pack_per_thread, true, false, c_type><<<grid, block>>>(
-          reinterpret_cast<c_type*>(input.data_ptr()),
+          reinterpret_cast<c_type*>(input.data()),
           nullptr,
-          output.data_ptr<int8_t>(),
-          reinterpret_cast<float*>(scale.data_ptr()),
+          output.data<int8_t>(),
+          reinterpret_cast<float*>(scale.data()),
           sm_scale,
           num_tokens,
           stride_bz_input, stride_seq_input, stride_h_input,
           0, 0,
           stride_bz_output, stride_seq_output, stride_h_output,
-          scale.stride(0), scale.stride(1)
+          scale.strides()[0], scale.strides()[1]
         );
       });
     });
@@ -511,9 +510,9 @@ void quant_per_block_int8_cuda(
 }
 
 void quant_per_block_int8_cuda(
-                torch::Tensor input,
-                torch::Tensor output,
-                torch::Tensor scale,
+                paddle::Tensor input,
+                paddle::Tensor output,
+                paddle::Tensor scale,
                 int block_size,
                 int tensor_layout)
 {
@@ -521,8 +520,8 @@ void quant_per_block_int8_cuda(
   CHECK_CUDA(output);
   CHECK_CUDA(scale);
   
-  CHECK_DTYPE(output, torch::kInt8);
-  CHECK_DTYPE(scale, torch::kFloat);
+  // CHECK_DTYPE(output, torch::kInt8);
+  // CHECK_DTYPE(scale, torch::kFloat);
 
   CHECK_LASTDIM_CONTIGUOUS(input);
   CHECK_CONTIGUOUS(output);
@@ -532,41 +531,41 @@ void quant_per_block_int8_cuda(
   CHECK_DIMS(output, 4);
   CHECK_DIMS(scale, 3);
 
-  const int batch_size = input.size(0);
-  const int head_dim = input.size(3);
+  const int batch_size = input.dims()[0];
+  const int head_dim = input.dims()[3];
 
-  int stride_bz_input = input.stride(0);
-  int stride_bz_output = output.stride(0);
+  int stride_bz_input = input.strides()[0];
+  int stride_bz_output = output.strides()[0];
 
   int num_tokens, num_heads;
   int stride_seq_input, stride_h_input, stride_seq_output, stride_h_output;
 
   if (tensor_layout == 0)
   {
-    num_tokens = input.size(1);
-    num_heads = input.size(2);
-    stride_seq_input = input.stride(1);
-    stride_h_input = input.stride(2);
-    stride_seq_output = output.stride(1);
-    stride_h_output = output.stride(2);
+    num_tokens = input.dims()[1];
+    num_heads = input.dims()[2];
+    stride_seq_input = input.strides()[1];
+    stride_h_input = input.strides()[2];
+    stride_seq_output = output.strides()[1];
+    stride_h_output = output.strides()[2];
   }
   else
   {
-    num_tokens = input.size(2);
-    num_heads = input.size(1);
-    stride_seq_input = input.stride(2);
-    stride_h_input = input.stride(1);
-    stride_seq_output = output.stride(2);
-    stride_h_output = output.stride(1);
+    num_tokens = input.dims()[2];
+    num_heads = input.dims()[1];
+    stride_seq_input = input.strides()[2];
+    stride_h_input = input.strides()[1];
+    stride_seq_output = output.strides()[2];
+    stride_h_output = output.strides()[1];
   }
 
-  auto input_dtype = input.scalar_type();
+  auto input_dtype = input.dtype();
 
-  DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(input_dtype, c_type, {
+  DISPATCH_PADDLE_DTYPE_TO_CTYPE_FP16(input_dtype, c_type, {
     DISPATCH_BLOCK_SIZE(block_size, BLOCK_SIZE, {
       DISPATCH_HEAD_DIM(head_dim, HEAD_DIM, {
 
-        CHECK_SHAPE(output, input.size(0), input.size(1), input.size(2), input.size(3));
+        CHECK_SHAPE(output, input.dims()[0], input.dims()[1], input.dims()[2], input.dims()[3]);
         CHECK_SHAPE(scale, batch_size, num_heads, (num_tokens + BLOCK_SIZE - 1) / BLOCK_SIZE);
 
         dim3 grid((num_tokens + BLOCK_SIZE - 1) / BLOCK_SIZE, num_heads, batch_size);
@@ -576,16 +575,16 @@ void quant_per_block_int8_cuda(
         dim3 block(BLOCK_SIZE * (HEAD_DIM / 8) / num_pack_per_thread);
 
         QuantInt8Kernel<HEAD_DIM, BLOCK_SIZE, num_pack_per_thread, false, false, c_type><<<grid, block>>>(
-          reinterpret_cast<c_type*>(input.data_ptr()),
+          reinterpret_cast<c_type*>(input.data()),
           nullptr,
-          output.data_ptr<int8_t>(),
-          reinterpret_cast<float*>(scale.data_ptr()),
+          output.data<int8_t>(),
+          reinterpret_cast<float*>(scale.data()),
           0.0f,
           num_tokens,
           stride_bz_input, stride_seq_input, stride_h_input,
           0, 0,
           stride_bz_output, stride_seq_output, stride_h_output,
-          scale.stride(0), scale.stride(1)
+          scale.strides()[0], scale.strides()[1]
         );
       });
     });
@@ -593,10 +592,10 @@ void quant_per_block_int8_cuda(
 }
 
 void quant_per_block_int8_fuse_sub_mean_cuda(
-                torch::Tensor input,
-                torch::Tensor mean,
-                torch::Tensor output,
-                torch::Tensor scale,
+                paddle::Tensor input,
+                paddle::Tensor mean,
+                paddle::Tensor output,
+                paddle::Tensor scale,
                 int block_size,
                 int tensor_layout)
 {
@@ -605,8 +604,8 @@ void quant_per_block_int8_fuse_sub_mean_cuda(
   CHECK_CUDA(output);
   CHECK_CUDA(scale);
   
-  CHECK_DTYPE(output, torch::kInt8);
-  CHECK_DTYPE(scale, torch::kFloat);
+  // CHECK_DTYPE(output, torch::kInt8);
+  // CHECK_DTYPE(scale, torch::kFloat);
 
   CHECK_LASTDIM_CONTIGUOUS(input);
   CHECK_CONTIGUOUS(mean);
@@ -618,45 +617,45 @@ void quant_per_block_int8_fuse_sub_mean_cuda(
   CHECK_DIMS(output, 4);
   CHECK_DIMS(scale, 3);
 
-  const int batch_size = input.size(0);
-  const int head_dim = input.size(3);
+  const int batch_size = input.dims()[0];
+  const int head_dim = input.dims()[3];
 
-  int stride_bz_input = input.stride(0);
-  int stride_bz_output = output.stride(0);
+  int stride_bz_input = input.strides()[0];
+  int stride_bz_output = output.strides()[0];
 
   int num_tokens, num_heads;
   int stride_seq_input, stride_h_input, stride_seq_output, stride_h_output;
 
   if (tensor_layout == 0)
   {
-    num_tokens = input.size(1);
-    num_heads = input.size(2);
-    stride_seq_input = input.stride(1);
-    stride_h_input = input.stride(2);
-    stride_seq_output = output.stride(1);
-    stride_h_output = output.stride(2);
+    num_tokens = input.dims()[1];
+    num_heads = input.dims()[2];
+    stride_seq_input = input.strides()[1];
+    stride_h_input = input.strides()[2];
+    stride_seq_output = output.strides()[1];
+    stride_h_output = output.strides()[2];
   }
   else
   {
-    num_tokens = input.size(2);
-    num_heads = input.size(1);
-    stride_seq_input = input.stride(2);
-    stride_h_input = input.stride(1);
-    stride_seq_output = output.stride(2);
-    stride_h_output = output.stride(1);
+    num_tokens = input.dims()[2];
+    num_heads = input.dims()[1];
+    stride_seq_input = input.strides()[2];
+    stride_h_input = input.strides()[1];
+    stride_seq_output = output.strides()[2];
+    stride_h_output = output.strides()[1];
   }
 
-  auto input_dtype = input.scalar_type();
-  auto mean_dtype = mean.scalar_type();
+  auto input_dtype = input.dtype();
+  auto mean_dtype = mean.dtype();
 
-  TORCH_CHECK(input_dtype == mean_dtype, "Input and mean must have the same data type");
+  PD_CHECK(input_dtype == mean_dtype, "Input and mean must have the same data type");
 
-  DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(input_dtype, c_type, {
+  DISPATCH_PADDLE_DTYPE_TO_CTYPE_FP16(input_dtype, c_type, {
     DISPATCH_BLOCK_SIZE(block_size, BLOCK_SIZE, {
       DISPATCH_HEAD_DIM(head_dim, HEAD_DIM, {
 
         CHECK_SHAPE(mean, batch_size, num_heads, head_dim);
-        CHECK_SHAPE(output, input.size(0), input.size(1), input.size(2), input.size(3));
+        CHECK_SHAPE(output, input.dims()[0], input.dims()[1], input.dims()[2], input.dims()[3]);
         CHECK_SHAPE(scale, batch_size, num_heads, (num_tokens + BLOCK_SIZE - 1) / BLOCK_SIZE);
 
         dim3 grid((num_tokens + BLOCK_SIZE - 1) / BLOCK_SIZE, num_heads, batch_size);
@@ -666,16 +665,16 @@ void quant_per_block_int8_fuse_sub_mean_cuda(
         dim3 block(BLOCK_SIZE * (HEAD_DIM / 8) / num_pack_per_thread);
 
         QuantInt8Kernel<HEAD_DIM, BLOCK_SIZE, num_pack_per_thread, false, true, c_type><<<grid, block>>>(
-          reinterpret_cast<c_type*>(input.data_ptr()),
-          reinterpret_cast<c_type*>(mean.data_ptr()),
-          output.data_ptr<int8_t>(),
-          reinterpret_cast<float*>(scale.data_ptr()),
+          reinterpret_cast<c_type*>(input.data()),
+          reinterpret_cast<c_type*>(mean.data()),
+          output.data<int8_t>(),
+          reinterpret_cast<float*>(scale.data()),
           0.0f,
           num_tokens,
           stride_bz_input, stride_seq_input, stride_h_input,
-          mean.stride(0), mean.stride(1),
+          mean.strides()[0], mean.strides()[1],
           stride_bz_output, stride_seq_output, stride_h_output,
-          scale.stride(0), scale.stride(1)
+          scale.strides()[0], scale.strides()[1]
         );
       });
     });
@@ -684,17 +683,17 @@ void quant_per_block_int8_fuse_sub_mean_cuda(
 
 // use block size 128 and warp_block size 32
 void quant_per_warp_int8_cuda(
-                torch::Tensor input,
-                torch::Tensor output,
-                torch::Tensor scale,
+                paddle::Tensor input,
+                paddle::Tensor output,
+                paddle::Tensor scale,
                 int tensor_layout)
 {
   CHECK_CUDA(input);
   CHECK_CUDA(output);
   CHECK_CUDA(scale);
   
-  CHECK_DTYPE(output, torch::kInt8);
-  CHECK_DTYPE(scale, torch::kFloat);
+  // CHECK_DTYPE(output, torch::kInt8);
+  // CHECK_DTYPE(scale, torch::kFloat);
 
   CHECK_LASTDIM_CONTIGUOUS(input);
   CHECK_CONTIGUOUS(output);
@@ -704,43 +703,43 @@ void quant_per_warp_int8_cuda(
   CHECK_DIMS(output, 4);
   CHECK_DIMS(scale, 3);
 
-  const int batch_size = input.size(0);
-  const int head_dim = input.size(3);
+  const int batch_size = input.dims()[0];
+  const int head_dim = input.dims()[3];
 
-  int stride_bz_input = input.stride(0);
-  int stride_bz_output = output.stride(0);
+  int stride_bz_input = input.strides()[0];
+  int stride_bz_output = output.strides()[0];
 
   int num_tokens, num_heads;
   int stride_seq_input, stride_h_input, stride_seq_output, stride_h_output;
 
   if (tensor_layout == 0)
   {
-    num_tokens = input.size(1);
-    num_heads = input.size(2);
-    stride_seq_input = input.stride(1);
-    stride_h_input = input.stride(2);
-    stride_seq_output = output.stride(1);
-    stride_h_output = output.stride(2);
+    num_tokens = input.dims()[1];
+    num_heads = input.dims()[2];
+    stride_seq_input = input.strides()[1];
+    stride_h_input = input.strides()[2];
+    stride_seq_output = output.strides()[1];
+    stride_h_output = output.strides()[2];
   }
   else
   {
-    num_tokens = input.size(2);
-    num_heads = input.size(1);
-    stride_seq_input = input.stride(2);
-    stride_h_input = input.stride(1);
-    stride_seq_output = output.stride(2);
-    stride_h_output = output.stride(1);
+    num_tokens = input.dims()[2];
+    num_heads = input.dims()[1];
+    stride_seq_input = input.strides()[2];
+    stride_h_input = input.strides()[1];
+    stride_seq_output = output.strides()[2];
+    stride_h_output = output.strides()[1];
   }
 
-  auto input_dtype = input.scalar_type();
+  auto input_dtype = input.dtype();
 
   constexpr int BLOCK_SIZE = 128;
   constexpr int WARP_BLOCK_SIZE = 32;
 
-  DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(input_dtype, c_type, {
+  DISPATCH_PADDLE_DTYPE_TO_CTYPE_FP16(input_dtype, c_type, {
     DISPATCH_HEAD_DIM(head_dim, HEAD_DIM, {
 
-      CHECK_SHAPE(output, input.size(0), input.size(1), input.size(2), input.size(3));
+      CHECK_SHAPE(output, input.dims()[0], input.dims()[1], input.dims()[2], input.dims()[3]);
       CHECK_SHAPE(scale, batch_size, num_heads, (num_tokens + BLOCK_SIZE - 1) / BLOCK_SIZE * (BLOCK_SIZE / WARP_BLOCK_SIZE));
 
       dim3 grid((num_tokens + BLOCK_SIZE - 1) / BLOCK_SIZE * (BLOCK_SIZE / WARP_BLOCK_SIZE), num_heads, batch_size);
@@ -750,25 +749,25 @@ void quant_per_warp_int8_cuda(
       dim3 block(WARP_BLOCK_SIZE * (HEAD_DIM / 8) / num_pack_per_thread);
 
       QuantInt8Kernel<HEAD_DIM, WARP_BLOCK_SIZE, num_pack_per_thread, false, false, c_type><<<grid, block>>>(
-        reinterpret_cast<c_type*>(input.data_ptr()),
+        reinterpret_cast<c_type*>(input.data()),
         nullptr,
-        output.data_ptr<int8_t>(),
-        reinterpret_cast<float*>(scale.data_ptr()),
+        output.data<int8_t>(),
+        reinterpret_cast<float*>(scale.data()),
         0.0,
         num_tokens,
         stride_bz_input, stride_seq_input, stride_h_input,
         0, 0,
         stride_bz_output, stride_seq_output, stride_h_output,
-        scale.stride(0), scale.stride(1)
+        scale.strides()[0], scale.strides()[1]
       );
     });
   });
 }
 
 void sub_mean_cuda(
-                torch::Tensor input,
-                torch::Tensor mean,
-                torch::Tensor output,
+                paddle::Tensor input,
+                paddle::Tensor mean,
+                paddle::Tensor output,
                 int tensor_layout)
 {
   CHECK_CUDA(input);
@@ -783,46 +782,46 @@ void sub_mean_cuda(
   CHECK_DIMS(mean, 3);
   CHECK_DIMS(output, 4);
 
-  CHECK_DTYPE(output, torch::kHalf);
+  // CHECK_DTYPE(output, torch::kHalf);
 
-  const int batch_size = input.size(0);
-  const int head_dim = input.size(3);
+  const int batch_size = input.dims()[0];
+  const int head_dim = input.dims()[3];
 
-  int stride_bz_input = input.stride(0);
-  int stride_bz_output = output.stride(0);
+  int stride_bz_input = input.strides()[0];
+  int stride_bz_output = output.strides()[0];
 
   int num_tokens, num_heads;
   int stride_seq_input, stride_h_input, stride_seq_output, stride_h_output;
 
   if (tensor_layout == 0)
   {
-    num_tokens = input.size(1);
-    num_heads = input.size(2);
-    stride_seq_input = input.stride(1);
-    stride_h_input = input.stride(2);
-    stride_seq_output = output.stride(1);
-    stride_h_output = output.stride(2);
+    num_tokens = input.dims()[1];
+    num_heads = input.dims()[2];
+    stride_seq_input = input.strides()[1];
+    stride_h_input = input.strides()[2];
+    stride_seq_output = output.strides()[1];
+    stride_h_output = output.strides()[2];
   }
   else
   {
-    num_tokens = input.size(2);
-    num_heads = input.size(1);
-    stride_seq_input = input.stride(2);
-    stride_h_input = input.stride(1);
-    stride_seq_output = output.stride(2);
-    stride_h_output = output.stride(1);
+    num_tokens = input.dims()[2];
+    num_heads = input.dims()[1];
+    stride_seq_input = input.strides()[2];
+    stride_h_input = input.strides()[1];
+    stride_seq_output = output.strides()[2];
+    stride_h_output = output.strides()[1];
   }
 
-  auto input_dtype = input.scalar_type();
-  auto mean_dtype = mean.scalar_type();
+  auto input_dtype = input.dtype();
+  auto mean_dtype = mean.dtype();
 
-  TORCH_CHECK(input_dtype == mean_dtype, "Input and mean must have the same data type");
+  PD_CHECK(input_dtype == mean_dtype, "Input and mean must have the same data type");
 
-  DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(input_dtype, c_type, {
+  DISPATCH_PADDLE_DTYPE_TO_CTYPE_FP16(input_dtype, c_type, {
     DISPATCH_HEAD_DIM(head_dim, HEAD_DIM, {
         
         CHECK_SHAPE(mean, batch_size, num_heads, head_dim);
-        CHECK_SHAPE(output, input.size(0), input.size(1), input.size(2), input.size(3));
+        CHECK_SHAPE(output, input.dims()[0], input.dims()[1], input.dims()[2], input.dims()[3]);
   
         constexpr int BLOCK_SIZE = (HEAD_DIM == 128) ? 64 : 128;
 
@@ -833,12 +832,12 @@ void sub_mean_cuda(
         dim3 block(BLOCK_SIZE * (HEAD_DIM / 8) / num_pack_per_thread);
 
         SubMeanKernel<HEAD_DIM, BLOCK_SIZE, num_pack_per_thread><<<grid, block>>>(
-          reinterpret_cast<c_type*>(input.data_ptr()),
-          reinterpret_cast<c_type*>(mean.data_ptr()),
-          reinterpret_cast<half*>(output.data_ptr()),
+          reinterpret_cast<c_type*>(input.data()),
+          reinterpret_cast<c_type*>(mean.data()),
+          reinterpret_cast<half*>(output.data()),
           num_tokens,
           stride_bz_input, stride_seq_input, stride_h_input,
-          mean.stride(0), mean.stride(1),
+          mean.strides()[0], mean.strides()[1],
           stride_bz_output, stride_seq_output, stride_h_output
         );
     });
@@ -846,8 +845,8 @@ void sub_mean_cuda(
 }
 
 void transpose_pad_permute_cuda(
-                torch::Tensor input,
-                torch::Tensor output,
+                paddle::Tensor input,
+                paddle::Tensor output,
                 int tensor_layout)
 {
   CHECK_CUDA(input);
@@ -861,23 +860,23 @@ void transpose_pad_permute_cuda(
 
   constexpr int CTA_SIZE = 64;
 
-  const int batch_size = input.size(0);
-  const int head_dim = input.size(3);
+  const int batch_size = input.dims()[0];
+  const int head_dim = input.dims()[3];
 
-  int stride_bz_input = input.stride(0);
-  int stride_bz_output = output.stride(0);
+  int stride_bz_input = input.strides()[0];
+  int stride_bz_output = output.strides()[0];
 
   int num_tokens, padded_num_tokens, num_heads;
   int stride_seq_input, stride_h_input, stride_d_output, stride_h_output;
 
   if (tensor_layout == 0)
   {
-    num_tokens = input.size(1);
-    num_heads = input.size(2);
-    stride_seq_input = input.stride(1);
-    stride_h_input = input.stride(2);
-    stride_d_output = output.stride(1);
-    stride_h_output = output.stride(2);
+    num_tokens = input.dims()[1];
+    num_heads = input.dims()[2];
+    stride_seq_input = input.strides()[1];
+    stride_h_input = input.strides()[2];
+    stride_d_output = output.strides()[1];
+    stride_h_output = output.strides()[2];
 
     padded_num_tokens = (num_tokens + CTA_SIZE - 1) / CTA_SIZE * CTA_SIZE;
 
@@ -885,23 +884,23 @@ void transpose_pad_permute_cuda(
   }
   else
   {
-    num_tokens = input.size(2);
-    num_heads = input.size(1);
-    stride_seq_input = input.stride(2);
-    stride_h_input = input.stride(1);
-    stride_d_output = output.stride(2);
-    stride_h_output = output.stride(1);
+    num_tokens = input.dims()[2];
+    num_heads = input.dims()[1];
+    stride_seq_input = input.strides()[2];
+    stride_h_input = input.strides()[1];
+    stride_d_output = output.strides()[2];
+    stride_h_output = output.strides()[1];
 
     padded_num_tokens = (num_tokens + CTA_SIZE - 1) / CTA_SIZE * CTA_SIZE;
     CHECK_SHAPE(output, batch_size, num_heads, head_dim, padded_num_tokens);
   }
 
-  auto input_dtype = input.scalar_type();
-  auto output_dtype = output.scalar_type();
+  auto input_dtype = input.dtype();
+  auto output_dtype = output.dtype();
 
-  TORCH_CHECK(input_dtype == output_dtype, "Input and output must have the same data type");
+  PD_CHECK(input_dtype == output_dtype, "Input and output must have the same data type");
 
-  DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(input_dtype, c_type, {
+  DISPATCH_PADDLE_DTYPE_TO_CTYPE_FP16(input_dtype, c_type, {
     DISPATCH_HEAD_DIM(head_dim, HEAD_DIM, {
       dim3 grid(padded_num_tokens / CTA_SIZE, num_heads, batch_size);
 
@@ -910,8 +909,8 @@ void transpose_pad_permute_cuda(
       dim3 block(CTA_SIZE * (HEAD_DIM / 8));
 
       TransposePadPermuteKernel<HEAD_DIM, CTA_SIZE, true, c_type><<<grid, block>>>(
-        reinterpret_cast<c_type*>(input.data_ptr()),
-        reinterpret_cast<c_type*>(output.data_ptr()),
+        reinterpret_cast<c_type*>(input.data()),
+        reinterpret_cast<c_type*>(output.data()),
         num_tokens,
         stride_bz_input, stride_seq_input, stride_h_input,
         stride_bz_output, stride_d_output, stride_h_output
@@ -922,9 +921,9 @@ void transpose_pad_permute_cuda(
 
 
 void scale_fuse_quant_cuda(
-                torch::Tensor input,
-                torch::Tensor output,
-                torch::Tensor scale,
+                paddle::Tensor input,
+                paddle::Tensor output,
+                paddle::Tensor scale,
                 int num_tokens,
                 float scale_max,
                 int tensor_layout)
@@ -934,7 +933,7 @@ void scale_fuse_quant_cuda(
   CHECK_CUDA(scale);
 
   // CHECK_DTYPE(output, torch::kInt8);
-  CHECK_DTYPE(scale, torch::kFloat);
+  // CHECK_DTYPE(scale, torch::kFloat);
 
   CHECK_CONTIGUOUS(input);
   CHECK_CONTIGUOUS(output);
@@ -944,35 +943,35 @@ void scale_fuse_quant_cuda(
   CHECK_DIMS(output, 4);
   CHECK_DIMS(scale, 3);
 
-  const int batch_size = input.size(0);
-  const int num_tokens_padded = input.size(3);
+  const int batch_size = input.dims()[0];
+  const int num_tokens_padded = input.dims()[3];
 
-  int stride_bz_input = input.stride(0);
-  int stride_bz_output = output.stride(0);
+  int stride_bz_input = input.strides()[0];
+  int stride_bz_output = output.strides()[0];
 
   int num_heads, head_dim;
   int stride_d_input, stride_h_input, stride_d_output, stride_h_output;
 
   if (tensor_layout == 0)
   {
-    num_heads = input.size(2);
-    head_dim = input.size(1);
-    stride_d_input = input.stride(1);
-    stride_h_input = input.stride(2);
-    stride_d_output = output.stride(1);
-    stride_h_output = output.stride(2);
+    num_heads = input.dims()[2];
+    head_dim = input.dims()[1];
+    stride_d_input = input.strides()[1];
+    stride_h_input = input.strides()[2];
+    stride_d_output = output.strides()[1];
+    stride_h_output = output.strides()[2];
   }
   else
   {
-    num_heads = input.size(1);
-    head_dim = input.size(2);
-    stride_d_input = input.stride(2);
-    stride_h_input = input.stride(1);
-    stride_d_output = output.stride(2);
-    stride_h_output = output.stride(1);
+    num_heads = input.dims()[1];
+    head_dim = input.dims()[2];
+    stride_d_input = input.strides()[2];
+    stride_h_input = input.strides()[1];
+    stride_d_output = output.strides()[2];
+    stride_h_output = output.strides()[1];
   }
 
-  CHECK_SHAPE(output, input.size(0), input.size(1), input.size(2), input.size(3));
+  CHECK_SHAPE(output, input.dims()[0], input.dims()[1], input.dims()[2], input.dims()[3]);
   CHECK_SHAPE(scale, batch_size, num_heads, head_dim);
 
   constexpr int CTA_SIZE = 256;
@@ -980,29 +979,29 @@ void scale_fuse_quant_cuda(
   dim3 grid(num_heads, batch_size, head_dim);
   dim3 block(CTA_SIZE);
 
-  auto input_dtype = input.scalar_type();
+  auto input_dtype = input.dtype();
 
-  DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(input_dtype, c_type, {
+  DISPATCH_PADDLE_DTYPE_TO_CTYPE_FP16(input_dtype, c_type, {
     MeanScaleKernel<64, false, c_type><<<grid, block>>>(
-      reinterpret_cast<c_type*>(input.data_ptr()),
-      reinterpret_cast<int8_t*>(output.data_ptr()),
+      reinterpret_cast<c_type*>(input.data()),
+      reinterpret_cast<int8_t*>(output.data()),
       nullptr,
-      reinterpret_cast<float*>(scale.data_ptr()),
+      reinterpret_cast<float*>(scale.data()),
       scale_max,
       num_tokens,
       stride_bz_input, stride_d_input, stride_h_input,
       stride_bz_output, stride_d_output, stride_h_output,
       0, 0,
-      scale.stride(0), scale.stride(1)
+      scale.strides()[0], scale.strides()[1]
     );
   });
 }
 
 void mean_scale_fuse_quant_cuda(
-                torch::Tensor input,
-                torch::Tensor output,
-                torch::Tensor mean,
-                torch::Tensor scale,
+                paddle::Tensor input,
+                paddle::Tensor output,
+                paddle::Tensor mean,
+                paddle::Tensor scale,
                 int num_tokens,
                 float scale_max,
                 int tensor_layout)
@@ -1013,8 +1012,8 @@ void mean_scale_fuse_quant_cuda(
   CHECK_CUDA(scale);
 
   // CHECK_DTYPE(output, torch::kInt8);
-  CHECK_DTYPE(mean, torch::kFloat);
-  CHECK_DTYPE(scale, torch::kFloat);
+  // CHECK_DTYPE(mean, torch::kFloat);
+  // CHECK_DTYPE(scale, torch::kFloat);
 
   CHECK_CONTIGUOUS(input);
   CHECK_CONTIGUOUS(output);
@@ -1026,35 +1025,35 @@ void mean_scale_fuse_quant_cuda(
   CHECK_DIMS(mean, 3);
   CHECK_DIMS(scale, 3);
 
-  const int batch_size = input.size(0);
-  const int num_tokens_padded = input.size(3);
+  const int batch_size = input.dims()[0];
+  const int num_tokens_padded = input.dims()[3];
 
-  int stride_bz_input = input.stride(0);
-  int stride_bz_output = output.stride(0);
+  int stride_bz_input = input.strides()[0];
+  int stride_bz_output = output.strides()[0];
 
   int num_heads, head_dim;
   int stride_d_input, stride_h_input, stride_d_output, stride_h_output;
 
   if (tensor_layout == 0)
   {
-    num_heads = input.size(2);
-    head_dim = input.size(1);
-    stride_d_input = input.stride(1);
-    stride_h_input = input.stride(2);
-    stride_d_output = output.stride(1);
-    stride_h_output = output.stride(2);
+    num_heads = input.dims()[2];
+    head_dim = input.dims()[1];
+    stride_d_input = input.strides()[1];
+    stride_h_input = input.strides()[2];
+    stride_d_output = output.strides()[1];
+    stride_h_output = output.strides()[2];
   }
   else
   {
-    num_heads = input.size(1);
-    head_dim = input.size(2);
-    stride_d_input = input.stride(2);
-    stride_h_input = input.stride(1);
-    stride_d_output = output.stride(2);
-    stride_h_output = output.stride(1);
+    num_heads = input.dims()[1];
+    head_dim = input.dims()[2];
+    stride_d_input = input.strides()[2];
+    stride_h_input = input.strides()[1];
+    stride_d_output = output.strides()[2];
+    stride_h_output = output.strides()[1];
   }
 
-  CHECK_SHAPE(output, input.size(0), input.size(1), input.size(2), input.size(3));
+  CHECK_SHAPE(output, input.dims()[0], input.dims()[1], input.dims()[2], input.dims()[3]);
   CHECK_SHAPE(mean, batch_size, num_heads, head_dim);
   CHECK_SHAPE(scale, batch_size, num_heads, head_dim);
 
@@ -1063,20 +1062,20 @@ void mean_scale_fuse_quant_cuda(
   dim3 grid(num_heads, batch_size, head_dim);
   dim3 block(CTA_SIZE);
 
-  auto input_dtype = input.scalar_type();
+  auto input_dtype = input.dtype();
 
-  DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(input_dtype, c_type, {
+  DISPATCH_PADDLE_DTYPE_TO_CTYPE_FP16(input_dtype, c_type, {
     MeanScaleKernel<64, true, c_type><<<grid, block>>>(
-      reinterpret_cast<c_type*>(input.data_ptr()),
-      reinterpret_cast<int8_t*>(output.data_ptr()),
-      reinterpret_cast<float*>(mean.data_ptr()),
-      reinterpret_cast<float*>(scale.data_ptr()),
+      reinterpret_cast<c_type*>(input.data()),
+      reinterpret_cast<int8_t*>(output.data()),
+      reinterpret_cast<float*>(mean.data()),
+      reinterpret_cast<float*>(scale.data()),
       scale_max,
       num_tokens,
       stride_bz_input, stride_d_input, stride_h_input,
       stride_bz_output, stride_d_output, stride_h_output,
-      mean.stride(0), mean.stride(1),
-      scale.stride(0), scale.stride(1)
+      mean.strides()[0], mean.strides()[1],
+      scale.strides()[0], scale.strides()[1]
     );
   });
 }

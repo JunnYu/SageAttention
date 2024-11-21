@@ -15,11 +15,15 @@
  */
 
 #include <pybind11/pybind11.h>
-#include <torch/extension.h>
+#include <paddle/extension.h>
 #include "attn_cuda.h"
+#include <cuda_fp16.h>
+#include "fused.h"
 
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
+
+PYBIND11_MODULE(qattn_fused, m)
 {
+  // qattn
   m.def("qk_int8_sv_f16_accum_f32_attn_per_warp", &qk_int8_sv_f16_accum_f32_attn_per_warp, "QK int8 sv f16 accum f32 attn per warp");
   m.def("qk_int8_sv_f16_accum_f16_attn_per_warp", &qk_int8_sv_f16_accum_f16_attn_per_warp, "QK int8 sv f16 accum f16 attn per warp");
   m.def("qk_int8_sv_f16_accum_f16_fuse_v_mean_attn_per_warp", &qk_int8_sv_f16_accum_f16_fuse_v_mean_attn_per_warp, "QK int8 sv f16 accum f16 attn per warp fuse v mean");
@@ -31,4 +35,15 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
   m.def("qk_int8_sv_f16_accum_f16_attn_per_warp_buf", &qk_int8_sv_f16_accum_f16_attn_per_warp_buf, "QK int8 sv f16 accum f16 attn per warp buf");
   m.def("qk_int8_sv_f8_accum_f32_attn_per_warp_buf", &qk_int8_sv_f8_accum_f32_attn_per_warp_buf, "QK int8 sv f8 accum f32 attn per warp buf");
   m.def("qk_int8_sv_f8_accum_f32_fuse_v_scale_attn_per_warp_buf", &qk_int8_sv_f8_accum_f32_fuse_v_scale_attn_per_warp_buf, "QK int8 sv f8 accum f32 fuse v scale attn per warp buf");
+  // fused
+  m.def("quant_per_block_int8_cuda", py::overload_cast<paddle::Tensor, paddle::Tensor, paddle::Tensor, float, int, int>(&quant_per_block_int8_cuda), "quant_per_block_int8_cuda");
+  m.def("quant_per_block_int8_cuda", py::overload_cast<paddle::Tensor, paddle::Tensor, paddle::Tensor, int, int>(&quant_per_block_int8_cuda), "quant_per_block_int8_cuda");
+  m.def("quant_per_block_int8_fuse_sub_mean_cuda", py::overload_cast<paddle::Tensor, paddle::Tensor, paddle::Tensor, paddle::Tensor, int, int>(&quant_per_block_int8_fuse_sub_mean_cuda), "quant_per_block_int8_fuse_sub_mean_cuda");
+  m.def("quant_per_warp_int8_cuda", py::overload_cast<paddle::Tensor, paddle::Tensor, paddle::Tensor, int>(&quant_per_warp_int8_cuda), "quant_per_warp_int8_cuda");
+
+  m.def("sub_mean_cuda", py::overload_cast<paddle::Tensor, paddle::Tensor, paddle::Tensor, int>(&sub_mean_cuda), "sub_mean_cuda");
+
+  m.def("transpose_pad_permute_cuda", py::overload_cast<paddle::Tensor, paddle::Tensor, int>(&transpose_pad_permute_cuda), "transpose_pad_permute_cuda");
+  m.def("scale_fuse_quant_cuda", py::overload_cast<paddle::Tensor, paddle::Tensor, paddle::Tensor, int, float, int>(&scale_fuse_quant_cuda), "scale_fuse_quant_cuda");
+  m.def("mean_scale_fuse_quant_cuda", py::overload_cast<paddle::Tensor, paddle::Tensor, paddle::Tensor, paddle::Tensor, int, float, int>(&mean_scale_fuse_quant_cuda), "mean_scale_fuse_quant_cuda");
 }

@@ -1,7 +1,7 @@
 import torch
 from diffusers import CogVideoXPipeline
 from diffusers.utils import export_to_video
-from sageattention import sageattn
+from ppsageattention import sageattn
 import torch.nn.functional as F
 
 F.scaled_dot_product_attention = sageattn

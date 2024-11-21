@@ -14,61 +14,61 @@
  * limitations under the License.
  */
 
-#include <torch/extension.h>
+#include <paddle/extension.h>
 
 void quant_per_block_int8_cuda(
-                torch::Tensor input,
-                torch::Tensor output,
-                torch::Tensor scale,
+                paddle::Tensor input,
+                paddle::Tensor output,
+                paddle::Tensor scale,
                 float sm_scale,
                 int block_size,
                 int tensor_layout);
 
 void quant_per_block_int8_cuda(
-                torch::Tensor input,
-                torch::Tensor output,
-                torch::Tensor scale,
+                paddle::Tensor input,
+                paddle::Tensor output,
+                paddle::Tensor scale,
                 int block_size,
                 int tensor_layout);
 
 void quant_per_block_int8_fuse_sub_mean_cuda(
-                torch::Tensor input,
-                torch::Tensor mean,
-                torch::Tensor output,
-                torch::Tensor scale,
+                paddle::Tensor input,
+                paddle::Tensor mean,
+                paddle::Tensor output,
+                paddle::Tensor scale,
                 int block_size,
                 int tensor_layout);
 
 void quant_per_warp_int8_cuda(
-                torch::Tensor input,
-                torch::Tensor output,
-                torch::Tensor scale,
+                paddle::Tensor input,
+                paddle::Tensor output,
+                paddle::Tensor scale,
                 int tensor_layout);
 
 void sub_mean_cuda(
-                torch::Tensor input,
-                torch::Tensor mean,
-                torch::Tensor output,
+                paddle::Tensor input,
+                paddle::Tensor mean,
+                paddle::Tensor output,
                 int tensor_layout);
 
 void transpose_pad_permute_cuda(
-                torch::Tensor input,
-                torch::Tensor output,
+                paddle::Tensor input,
+                paddle::Tensor output,
                 int tensor_layout);
 
 void scale_fuse_quant_cuda(
-                torch::Tensor input,
-                torch::Tensor output,
-                torch::Tensor scale,
+                paddle::Tensor input,
+                paddle::Tensor output,
+                paddle::Tensor scale,
                 int num_tokens,
                 float scale_max,
                 int tensor_layout);
 
 void mean_scale_fuse_quant_cuda(
-                torch::Tensor input,
-                torch::Tensor output,
-                torch::Tensor mean,
-                torch::Tensor scale,
+                paddle::Tensor input,
+                paddle::Tensor output,
+                paddle::Tensor mean,
+                paddle::Tensor scale,
                 int num_tokens,
                 float scale_max,
                 int tensor_layout);

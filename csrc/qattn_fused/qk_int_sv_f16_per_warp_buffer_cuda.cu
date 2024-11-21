@@ -17,7 +17,7 @@
 #include "../utils.cuh"
 #include <cuda_fp16.h>
 #include <cuda_pipeline_primitives.h>
-#include <torch/extension.h>
+#include <paddle/extension.h>
 
 #include "../cp_async.cuh"
 #include "../mma.cuh"
@@ -678,12 +678,12 @@ __global__ void qk_int_sv_f16_attn_per_warp_buffer_kernel(int8_t *__restrict__ Q
 }
 
 // tensor_layout 0 for [B, N, H, D], 1 for [B, H, N, D]
-torch::Tensor  qk_int8_sv_f16_accum_f16_attn_per_warp_buf(torch::Tensor query,
-                    torch::Tensor key,
-                    torch::Tensor value,
-                    torch::Tensor output,
-                    torch::Tensor query_scale,
-                    torch::Tensor key_scale,
+paddle::Tensor  qk_int8_sv_f16_accum_f16_attn_per_warp_buf(paddle::Tensor query,
+                    paddle::Tensor key,
+                    paddle::Tensor value,
+                    paddle::Tensor output,
+                    paddle::Tensor query_scale,
+                    paddle::Tensor key_scale,
                     int tensor_layout,
                     int is_causal,
                     float sm_scale,
@@ -703,11 +703,11 @@ torch::Tensor  qk_int8_sv_f16_accum_f16_attn_per_warp_buf(torch::Tensor query,
   CHECK_CONTIGUOUS(query_scale);
   CHECK_CONTIGUOUS(key_scale);
 
-  CHECK_DTYPE(query, torch::kInt8);
-  CHECK_DTYPE(key, torch::kInt8);
-  CHECK_DTYPE(value, torch::kHalf);
-  CHECK_DTYPE(query_scale, torch::kFloat32);
-  CHECK_DTYPE(key_scale, torch::kFloat32);
+  // CHECK_DTYPE(query, torch::kInt8);
+  // CHECK_DTYPE(key, torch::kInt8);
+  // CHECK_DTYPE(value, torch::kHalf);
+  // CHECK_DTYPE(query_scale, torch::kFloat32);
+  // CHECK_DTYPE(key_scale, torch::kFloat32);
 
   CHECK_DIMS(query, 4);
   CHECK_DIMS(key, 4);
@@ -716,13 +716,13 @@ torch::Tensor  qk_int8_sv_f16_accum_f16_attn_per_warp_buf(torch::Tensor query,
   CHECK_DIMS(query_scale, 3);
   CHECK_DIMS(key_scale, 3);
 
-  const int head_dim = query.size(3);
-  const int batch_size = query.size(0);
+  const int head_dim = query.dims()[3];
+  const int batch_size = query.dims()[0];
 
-  int stride_bz_q = query.stride(0);
-  int stride_bz_k = key.stride(0);
-  int stride_bz_v = value.stride(0);
-  int stride_bz_o = output.stride(0);
+  int stride_bz_q = query.strides()[0];
+  int stride_bz_k = key.strides()[0];
+  int stride_bz_v = value.strides()[0];
+  int stride_bz_o = output.strides()[0];
 
   int qo_len, kv_len, num_qo_heads, num_kv_heads;
   int stride_seq_q, stride_seq_k, stride_seq_v, stride_seq_o;
@@ -730,41 +730,41 @@ torch::Tensor  qk_int8_sv_f16_accum_f16_attn_per_warp_buf(torch::Tensor query,
 
   if (tensor_layout == 0)
   {
-    qo_len = query.size(1);
-    kv_len = key.size(1);
-    num_qo_heads = query.size(2);
-    num_kv_heads = key.size(2);
+    qo_len = query.dims()[1];
+    kv_len = key.dims()[1];
+    num_qo_heads = query.dims()[2];
+    num_kv_heads = key.dims()[2];
     CHECK_SHAPE(key, batch_size, kv_len, num_kv_heads, head_dim);
     CHECK_SHAPE(value, batch_size, kv_len, num_kv_heads, head_dim);
 
-    stride_seq_q = query.stride(1);
-    stride_seq_k = key.stride(1);
-    stride_seq_v = value.stride(1);
-    stride_seq_o = output.stride(1);
+    stride_seq_q = query.strides()[1];
+    stride_seq_k = key.strides()[1];
+    stride_seq_v = value.strides()[1];
+    stride_seq_o = output.strides()[1];
 
-    stride_h_q = query.stride(2);
-    stride_h_k = key.stride(2);
-    stride_h_v = value.stride(2);
-    stride_h_o = output.stride(2);
+    stride_h_q = query.strides()[2];
+    stride_h_k = key.strides()[2];
+    stride_h_v = value.strides()[2];
+    stride_h_o = output.strides()[2];
   }
   else if (tensor_layout == 1)
   {
-    qo_len = query.size(2);
-    kv_len = key.size(2);
-    num_qo_heads = query.size(1);
-    num_kv_heads = key.size(1);
+    qo_len = query.dims()[2];
+    kv_len = key.dims()[2];
+    num_qo_heads = query.dims()[1];
+    num_kv_heads = key.dims()[1];
     CHECK_SHAPE(key, batch_size, num_kv_heads, kv_len, head_dim);
     CHECK_SHAPE(value, batch_size, num_kv_heads, kv_len, head_dim);
 
-    stride_seq_q = query.stride(2);
-    stride_seq_k = key.stride(2);
-    stride_seq_v = value.stride(2);
-    stride_seq_o = output.stride(2);
+    stride_seq_q = query.strides()[2];
+    stride_seq_k = key.strides()[2];
+    stride_seq_v = value.strides()[2];
+    stride_seq_o = output.strides()[2];
 
-    stride_h_q = query.stride(1);
-    stride_h_k = key.stride(1);
-    stride_h_v = value.stride(1);
-    stride_h_o = output.stride(1);
+    stride_h_q = query.strides()[1];
+    stride_h_k = key.strides()[1];
+    stride_h_v = value.strides()[1];
+    stride_h_o = output.strides()[1];
   }
   else
   {
@@ -779,18 +779,18 @@ torch::Tensor  qk_int8_sv_f16_accum_f16_attn_per_warp_buf(torch::Tensor query,
 
   const int num_kv_groups = num_qo_heads / num_kv_heads;
 
-  torch::Tensor lse = torch::empty({0});
+  paddle::Tensor lse = paddle::empty({0}, paddle::DataType::FLOAT32, query.place());
   if (return_lse)
   {
-    lse = torch::empty({batch_size, num_qo_heads, qo_len}, query.options().dtype(torch::kFloat32));
+    lse = paddle::empty({batch_size, num_qo_heads, qo_len}, paddle::DataType::FLOAT32, query.place());
   }
 
-  auto output_dtype = output.scalar_type();
+  auto output_dtype = output.dtype();
 
   DISPATCH_HEAD_DIM(head_dim, HEAD_DIM, {
     DISPATCH_CAUSAL(is_causal, IS_CAUSAL, {
       DISPATCH_RETURN_LSE(return_lse, RETURN_LSE, {
-        DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(output_dtype, DTypeOut, {
+        DISPATCH_PADDLE_DTYPE_TO_CTYPE_FP16(output_dtype, DTypeOut, {
           constexpr int CTA_Q = (HEAD_DIM == 256) ? 64 : 128;
           constexpr int CTA_K = (HEAD_DIM == 256) ? 32 : 64;
           constexpr int WARP_Q = (HEAD_DIM == 256) ? 16 : 32;
@@ -813,13 +813,13 @@ torch::Tensor  qk_int8_sv_f16_accum_f16_attn_per_warp_buf(torch::Tensor query,
           dim3 block(32, (CTA_Q / WARP_Q) * (CTA_K / WARP_K));
 
           kernel_func<<<grid, block, smem_max>>>(
-            query.data_ptr<int8_t>(), 
-            key.data_ptr<int8_t>(),
-            reinterpret_cast<half*>(value.data_ptr()),
-            reinterpret_cast<DTypeOut*>(output.data_ptr()),
-            (return_lse) ? reinterpret_cast<float*>(lse.data_ptr()) : nullptr,
-            reinterpret_cast<float*>(query_scale.data_ptr()),
-            reinterpret_cast<float*>(key_scale.data_ptr()),
+            query.data<int8_t>(), 
+            key.data<int8_t>(),
+            reinterpret_cast<half*>(value.data()),
+            reinterpret_cast<DTypeOut*>(output.data()),
+            (return_lse) ? reinterpret_cast<float*>(lse.data()) : nullptr,
+            reinterpret_cast<float*>(query_scale.data()),
+            reinterpret_cast<float*>(key_scale.data()),
             nullptr,
             qo_len,
             kv_len,

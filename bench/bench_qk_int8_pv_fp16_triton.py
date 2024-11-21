@@ -1,8 +1,8 @@
 import torch
 from flash_attn.utils.benchmark import benchmark_forward
 # from sageattention.attn_qk_int8_per_block_hd128 import forward
-from sageattention.triton.attn_qk_int8_per_block import forward
-from sageattention.triton.attn_qk_int8_per_block_causal import forward as forward_causal
+from ppsageattention.triton.attn_qk_int8_per_block import forward
+from ppsageattention.triton.attn_qk_int8_per_block_causal import forward as forward_causal
 
 import argparse
 

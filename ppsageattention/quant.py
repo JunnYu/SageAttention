@@ -14,18 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import torch
+import paddle
 from typing import Any, List, Literal, Optional, Tuple, Union
 
-from ._fused import quant_per_block_int8_cuda, quant_per_block_int8_fuse_sub_mean_cuda, quant_per_warp_int8_cuda
-from ._fused import sub_mean_cuda
-from ._fused import transpose_pad_permute_cuda
-from ._fused import scale_fuse_quant_cuda, mean_scale_fuse_quant_cuda
+from qattn_fused import quant_per_block_int8_cuda, quant_per_block_int8_fuse_sub_mean_cuda, quant_per_warp_int8_cuda
+from qattn_fused import sub_mean_cuda
+from qattn_fused import transpose_pad_permute_cuda
+from qattn_fused import scale_fuse_quant_cuda, mean_scale_fuse_quant_cuda
 
 def per_block_int8(
-    q: torch.Tensor, 
-    k: torch.Tensor, 
-    km: Optional[torch.Tensor] = None,
+    q: paddle.Tensor, 
+    k: paddle.Tensor, 
+    km: Optional[paddle.Tensor] = None,
     BLKQ: int =128, 
     BLKK: int =64, 
     sm_scale: Optional[float] = None, 
@@ -36,17 +36,17 @@ def per_block_int8(
 
     Parameters
     ----------
-    q : torch.Tensor
+    q : paddle.Tensor
         The query tensor. Shape:
         - If `tensor_layout` is "HND": ``[batch_size, num_qo_heads, qo_len, head_dim]``.
         - If `tensor_layout` is "NHD": ``[batch_size, qo_len, num_qo_heads, head_dim]``.
 
-    k : torch.Tensor
+    k : paddle.Tensor
         The key tensor. Shape:
         - If `tensor_layout` is "HND": ``[batch_size, num_kv_heads, kv_len, head_dim]``.
         - If `tensor_layout` is "NHD": ``[batch_size, kv_len, num_kv_heads, head_dim]``.
 
-    km : Optional[torch.Tensor]
+    km : Optional[paddle.Tensor]
         The mean tensor of `k` along the sequence length dimension. Shape: ``[batch_size, num_kv_heads, head_dim]``.
         Should be of the same dtype as `k` if provided. Default is None.
     
@@ -60,7 +60,7 @@ def per_block_int8(
 
     Returns
     -------
-    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+    Tuple[paddle.Tensor, paddle.Tensor, paddle.Tensor, paddle.Tensor]
         A tuple containing:
         - The quantized query tensor. Shape: Same as `q` but with `int8` dtype.
         - The scale tensor of the query tensor. Shape: ``[batch_size, num_qo_heads, (qo_len + BLKQ - 1) // BLKQ]`` with `float32` dtype.
@@ -69,11 +69,11 @@ def per_block_int8(
     
     Note
     ----
-    - The tensors `q` and `k` must have the dtype ``torch.float16`` or ``torch.bfloat16``
+    - The tensors `q` and `k` must have the dtype ``paddle.float16`` or ``paddle.bfloat16``
     """
 
-    q_int8 = torch.empty(q.shape, dtype=torch.int8, device=q.device)
-    k_int8 = torch.empty(k.shape, dtype=torch.int8, device=k.device)
+    q_int8 = paddle.empty(q.shape, dtype=paddle.int8)
+    k_int8 = paddle.empty(k.shape, dtype=paddle.int8)
 
     if tensor_layout == "HND":
         b, h_qo, qo_len, head_dim = q.shape
@@ -88,8 +88,8 @@ def per_block_int8(
     
     _tensor_layout = 0 if tensor_layout == "NHD" else 1
 
-    q_scale = torch.empty((b, h_qo, (qo_len + BLKQ - 1) // BLKQ), device=q.device, dtype=torch.float32)
-    k_scale = torch.empty((b, h_kv, (kv_len + BLKK - 1) // BLKK), device=q.device, dtype=torch.float32)
+    q_scale = paddle.empty((b, h_qo, (qo_len + BLKQ - 1) // BLKQ), dtype=paddle.float32)
+    k_scale = paddle.empty((b, h_kv, (kv_len + BLKK - 1) // BLKK), dtype=paddle.float32)
 
     if sm_scale is None:
         sm_scale = head_dim**-0.5
@@ -106,9 +106,9 @@ def per_block_int8(
     return q_int8, q_scale, k_int8, k_scale
 
 def per_warp_int8(
-    q: torch.Tensor, 
-    k: torch.Tensor, 
-    km: Optional[torch.Tensor] = None, 
+    q: paddle.Tensor, 
+    k: paddle.Tensor, 
+    km: Optional[paddle.Tensor] = None, 
     tensor_layout: str ="HND"
 ):
     """
@@ -118,17 +118,17 @@ def per_warp_int8(
 
     Parameters
     ----------
-    q : torch.Tensor
+    q : paddle.Tensor
         The query tensor. Shape:
         - If `tensor_layout` is "HND": ``[batch_size, num_qo_heads, qo_len, head_dim]``.
         - If `tensor_layout` is "NHD": ``[batch_size, qo_len, num_qo_heads, head_dim]``.
 
-    k : torch.Tensor
+    k : paddle.Tensor
         The key tensor. Shape:
         - If `tensor_layout` is "HND": ``[batch_size, num_kv_heads, kv_len, head_dim]``.
         - If `tensor_layout` is "NHD": ``[batch_size, kv_len, num_kv_heads, head_dim]``.
 
-    km : Optional[torch.Tensor]
+    km : Optional[paddle.Tensor]
         The mean tensor of `k` along the sequence length dimension. Shape: ``[batch_size, num_kv_heads, head_dim]``.
         Should be of the same dtype as `k` if provided. Default is None.
     
@@ -138,7 +138,7 @@ def per_warp_int8(
 
     Returns
     -------
-    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+    Tuple[paddle.Tensor, paddle.Tensor, paddle.Tensor, paddle.Tensor]
         A tuple containing:
         - The quantized query tensor. Shape: Same as `q` but with `int8` dtype.
         - The scale tensor of the query tensor. Shape: ``[batch_size, num_qo_heads, (qo_len + BLKQ - 1) // 128 * 4]`` with `float32` dtype.
@@ -147,11 +147,11 @@ def per_warp_int8(
     
     Note
     ----
-    - The tensors `q` and `k` must have the dtype ``torch.float16`` or ``torch.bfloat16``
+    - The tensors `q` and `k` must have the dtype ``paddle.float16`` or ``paddle.bfloat16``
     """
 
-    q_int8 = torch.empty(q.shape, dtype=torch.int8, device=q.device)
-    k_int8 = torch.empty(k.shape, dtype=torch.int8, device=k.device)
+    q_int8 = paddle.empty(q.shape, dtype=paddle.int8)
+    k_int8 = paddle.empty(k.shape, dtype=paddle.int8)
 
     if tensor_layout == "HND":
         b, h_qo, qo_len, head_dim = q.shape
@@ -166,8 +166,8 @@ def per_warp_int8(
     
     _tensor_layout = 0 if tensor_layout == "NHD" else 1
 
-    q_scale = torch.empty((b, h_qo, ((qo_len + 127) // 128) * (128 // 32)), device=q.device, dtype=torch.float32)
-    k_scale = torch.empty((b, h_kv, (kv_len + 63) // 64), device=q.device, dtype=torch.float32)
+    q_scale = paddle.empty((b, h_qo, ((qo_len + 127) // 128) * (128 // 32)), dtype=paddle.float32)
+    k_scale = paddle.empty((b, h_kv, (kv_len + 63) // 64), dtype=paddle.float32)
 
     quant_per_warp_int8_cuda(q, q_int8, q_scale, _tensor_layout)
 
@@ -180,7 +180,7 @@ def per_warp_int8(
     return q_int8, q_scale, k_int8, k_scale
 
 def sub_mean(
-    v: torch.Tensor, 
+    v: paddle.Tensor, 
     tensor_layout: str ="HND"
 ):
     """
@@ -188,7 +188,7 @@ def sub_mean(
 
     Parameters
     ----------
-    v : torch.Tensor
+    v : paddle.Tensor
         The input tensor. Shape:
         - If `tensor_layout` is "HND": ``[batch_size, num_kv_heads, kv_len, head_dim]``.
         - If `tensor_layout` is "NHD": ``[batch_size, kv_len, num_kv_heads, head_dim]``.
@@ -199,22 +199,22 @@ def sub_mean(
 
     Returns
     -------
-    Tuple[torch.Tensor, torch.Tensor]
+    Tuple[paddle.Tensor, paddle.Tensor]
         A tuple containing:
         - The tensor `v_smoothed` with the mean subtracted and stored as fp16. Shape: Same as `v` with `float16` dtype.
         - The mean tensor of `v` along the sequence length dimension. Shape: ``[batch_size, num_kv_heads, head_dim]`` with dtype same as `v`.
 
     Note
     ----
-    - The tensors `v` must have the dtype ``torch.float16`` or ``torch.bfloat16``
-    - The returned tensor `v_smoothed` will have dtype ``torch.float16`` regardless of the input dtype.
+    - The tensors `v` must have the dtype ``paddle.float16`` or ``paddle.bfloat16``
+    - The returned tensor `v_smoothed` will have dtype ``paddle.float16`` regardless of the input dtype.
     - The returned mean tensor will have the same dtype as the input tensor.
     """
 
     _tensor_layout = 0 if tensor_layout == "NHD" else 1
-    vm = v.mean(dim=1 if _tensor_layout == 0 else 2)
+    vm = v.mean(axis=1 if _tensor_layout == 0 else 2)
 
-    v_smoothed = torch.empty(v.shape, dtype=torch.float16, device=v.device)
+    v_smoothed = paddle.empty(v.shape, dtype=paddle.float16)
     
     # subtract mean and store the result as fp16
     sub_mean_cuda(v, vm, v_smoothed, _tensor_layout)
@@ -222,7 +222,7 @@ def sub_mean(
     return v_smoothed, vm
 
 def per_channel_fp8(
-    v: torch.Tensor,
+    v: paddle.Tensor,
     tensor_layout: str ="HND",
     scale_max: float = 448.0,
     smooth_v: bool = True
@@ -235,7 +235,7 @@ def per_channel_fp8(
 
     Parameters
     ----------
-    v : torch.Tensor
+    v : paddle.Tensor
         The input tensor. Shape:
         - If `tensor_layout` is "HND": ``[batch_size, num_kv_heads, kv_len, head_dim]``.
         - If `tensor_layout` is "NHD": ``[batch_size, kv_len, num_kv_heads, head_dim]``.
@@ -252,7 +252,7 @@ def per_channel_fp8(
 
     Returns
     -------
-    Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]
+    Tuple[paddle.Tensor, paddle.Tensor, Optional[paddle.Tensor]]
         A tuple containing:
         - The quantized tensor `v_fp8`. Shape:
             - If `tensor_layout` is "HND": ``[batch_size, num_kv_heads, head_dim, (kv_len + 63) // 64 * 64]``, with `float8_e4m3fn` dtype.
@@ -262,8 +262,8 @@ def per_channel_fp8(
 
     Note
     ----
-    - The tensors `v` must have the dtype ``torch.float16`` or ``torch.bfloat16``
-    - The returned mean tensor will be None if `smooth_v` is False. Otherwise it will have dtype ``torch.float32``.
+    - The tensors `v` must have the dtype ``paddle.float16`` or ``paddle.bfloat16``
+    - The returned mean tensor will be None if `smooth_v` is False. Otherwise it will have dtype ``paddle.float32``.
     """
 
     _tensor_layout = 0 if tensor_layout == "NHD" else 1
@@ -271,19 +271,19 @@ def per_channel_fp8(
     if tensor_layout == "HND":
         b, h_kv, kv_len, head_dim = v.shape
         padded_len = (kv_len + 63) // 64 * 64
-        v_transposed_permutted = torch.empty((b, h_kv, head_dim, padded_len), dtype=v.dtype, device=v.device)
+        v_transposed_permutted = paddle.empty((b, h_kv, head_dim, padded_len), dtype=v.dtype)
 
     elif tensor_layout == "NHD":
         b, kv_len, h_kv, head_dim = v.shape
         padded_len = (kv_len + 63) // 64 * 64
-        v_transposed_permutted = torch.empty((b, head_dim, h_kv, padded_len), dtype=v.dtype, device=v.device)
+        v_transposed_permutted = paddle.empty((b, head_dim, h_kv, padded_len), dtype=v.dtype)
     
     transpose_pad_permute_cuda(v, v_transposed_permutted, _tensor_layout)
 
-    v_fp8 = torch.empty(v_transposed_permutted.shape, dtype=torch.float8_e4m3fn, device=v.device)
+    v_fp8 = paddle.empty(v_transposed_permutted.shape, dtype="float8_e4m3fn")
 
-    v_scale = torch.empty((b, h_kv, head_dim), dtype=torch.float32, device=v.device)
-    vm = torch.empty((b, h_kv, head_dim), dtype=torch.float32, device=v.device)
+    v_scale = paddle.empty((b, h_kv, head_dim), dtype=paddle.float32)
+    vm = paddle.empty((b, h_kv, head_dim), dtype=paddle.float32)
 
     if smooth_v:
         mean_scale_fuse_quant_cuda(v_transposed_permutted, v_fp8, vm, v_scale, kv_len, scale_max, _tensor_layout)

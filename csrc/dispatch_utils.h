@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <torch/extension.h>
+#include <paddle/extension.h>
 #include <cstdint>
 #include <sstream>
 #include <stdexcept>
@@ -59,17 +59,17 @@
     throw std::invalid_argument(err_msg.str());                  \
   }
 
-#define DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(pytorch_dtype, c_type, ...)                \
-  if (pytorch_dtype == at::ScalarType::Half) {                                          \
+#define DISPATCH_PADDLE_DTYPE_TO_CTYPE_FP16(paddle_dtype, c_type, ...)                \
+  if (paddle_dtype == paddle::DataType::FLOAT16) {                                          \
     using c_type = half;                                                                \
     __VA_ARGS__                                                                         \
-  } else if (pytorch_dtype == at::ScalarType::BFloat16) {                               \
+  } else if (paddle_dtype == paddle::DataType::BFLOAT16) {                               \
     using c_type = nv_bfloat16;                                                         \
     __VA_ARGS__                                                                         \
   } else {                                                                              \
     std::ostringstream oss;                                                             \
-    oss << __PRETTY_FUNCTION__ << " failed to dispatch data type " << pytorch_dtype;    \
-    TORCH_CHECK(false, oss.str());                                                      \
+    oss << __PRETTY_FUNCTION__ << " failed to dispatch data type " << paddle_dtype;    \
+    PD_CHECK(false, oss.str());                                                      \
   }
 
 #define DISPATCH_BLOCK_SIZE(block_size, BLOCK_SIZE, ...)        \

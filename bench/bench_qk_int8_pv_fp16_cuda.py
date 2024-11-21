@@ -1,7 +1,7 @@
 import torch
 from flash_attn.utils.benchmark import benchmark_forward
 
-import sageattention._qattn as qattn
+import qattn_fused as qattn
 
 import argparse
 

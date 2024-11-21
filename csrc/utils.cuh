@@ -15,24 +15,24 @@
  */
 
 #pragma once
-#include <torch/extension.h>
+#include <paddle/extension.h>
 
 #define CHECK_CUDA(x) \
-  TORCH_CHECK(x.is_cuda(), "Tensor " #x " must be on CUDA")
+  PD_CHECK(x.is_gpu(), "Tensor " #x " must be on CUDA")
 #define CHECK_DTYPE(x, true_dtype)     \
-  TORCH_CHECK(x.dtype() == true_dtype, \
+  PD_CHECK(x.dtype() == true_dtype, \
               "Tensor " #x " must have dtype (" #true_dtype ")")
 #define CHECK_DIMS(x, true_dim)    \
-  TORCH_CHECK(x.dim() == true_dim, \
+  PD_CHECK(x.dims().size() == true_dim, \
               "Tensor " #x " must have dimension number (" #true_dim ")")
 #define CHECK_NUMEL(x, minimum)     \
-  TORCH_CHECK(x.numel() >= minimum, \
+  PD_CHECK(x.numel() >= minimum, \
               "Tensor " #x " must have at last " #minimum " elements")
 #define CHECK_SHAPE(x, ...)                                   \
-  TORCH_CHECK(x.sizes() == torch::IntArrayRef({__VA_ARGS__}), \
+  PD_CHECK(x.dims() == common::make_ddim({__VA_ARGS__}), \
               "Tensor " #x " must have shape (" #__VA_ARGS__ ")")
 #define CHECK_CONTIGUOUS(x) \
-  TORCH_CHECK(x.is_contiguous(), "Tensor " #x " must be contiguous")
+  PD_CHECK(true, "Tensor " #x " must be contiguous") // TODO: implement x.is_contiguous()
 #define CHECK_LASTDIM_CONTIGUOUS(x) \
-  TORCH_CHECK(x.stride(-1) == 1,    \
+  PD_CHECK(x.strides()[x.strides().size() - 1] == 1,    \
               "Tensor " #x " must be contiguous at the last dimension")
