@@ -4,14 +4,14 @@ import paddle.nn.functional as F
 from ppsageattention import sageattn
 import matplotlib.pyplot as plt
  
-# 初始化一个字典来存储每种数据类型的平均运行时间
 times = {
     "sageattn": [],
     "scaled_dot_product_attention": []
 }
-n_iter = 100  # 迭代次数
-shape = (2, 32, 128*1024, 64)
+n_iter = 20  # 迭代次数
+shape = (4, 32, 1536, 128)
 dtype_list= ["float16", "bfloat16"]
+paddle.set_grad_enabled(False)
 
 for dtype in dtype_list:
     paddle.seed(42)
